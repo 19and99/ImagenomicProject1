@@ -1,7 +1,3 @@
-// ImageApp.cpp : Defines the entry point for the application.
-//
-
-
 
 #include "stdafx.h"
 #include "Filter.h"
@@ -10,23 +6,26 @@
 #include <string>
 #include <windows.h>
 #include <windowsx.h>
+#include "BWConverter.h"
+#include "BoxBlur.h"
 #include <gdiplus.h>
 #pragma comment (lib,"Gdiplus.lib")
+#include <vector>
 
 using namespace Gdiplus;
 
-
 HINSTANCE g_hInst;
-Graphics* graphics;
-HWND picWND;
-
-RECT picRect;
-int h, w;
+Bitmap* original;
+Bitmap* filtered;
+GenericImage* filteredGeneric;
+Rect picRect;
+int radius = 1;
 int filter = 0;
+bool show = true;
 
 BOOL CALLBACK DialogProc(HWND, UINT, WPARAM, LPARAM);
 
-void BW(Bitmap*);
+Rect fit(Rect region, int width, int height);
 
 int APIENTRY wWinMain(HINSTANCE hInstance,
 	HINSTANCE hPrevInstance,
@@ -40,6 +39,7 @@ int APIENTRY wWinMain(HINSTANCE hInstance,
 
 	g_hInst = hInstance;
 
+
 	dialog = CreateDialog(hInstance, MAKEINTRESOURCE(IDD_DIALOG1), NULL, DialogProc);
 
 	if (!dialog) {
@@ -48,15 +48,6 @@ int APIENTRY wWinMain(HINSTANCE hInstance,
 	}
 	ShowWindow(dialog, nCmdShow);
 	UpdateWindow(dialog);
-
-	graphics = new Graphics(GetDC(GetDlgItem(dialog,IDC_STATIC)));
-	picWND = GetDlgItem(dialog, IDC_STATIC);
-	
-	GetWindowRect(picWND, &picRect);
-
-	h = picRect.bottom - picRect.top;
-	w = picRect.right - picRect.left;
-
 
 	MSG msg;
 
@@ -73,83 +64,148 @@ int APIENTRY wWinMain(HINSTANCE hInstance,
 
 
 BOOL CALLBACK DialogProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
-	Pen pen(Color(255, 255, 0, 0), 17);
-	Image image(L"duck.jpg");
-	Bitmap image1(L"duck.jpg");
-	Rect rect(0, 0, h, w);
-	
-	int xPos, yPos;
-	
+
+	PAINTSTRUCT ps;
+	HDC hdc;
+	Rect rect(20, 80, 600, 300);
+	int xPos = 0;
+	int yPos = 0;
+
 	switch (message)
 	{
+	case WM_PAINT:
+	{
+		hdc = BeginPaint(hWnd, &ps);
+		Gdiplus::Graphics graphics(hdc);
+
+		if (show) {
+			graphics.DrawImage(filtered, picRect);
+		}
+		else {
+			graphics.DrawImage(original, picRect);
+		}
+		Gdiplus::Pen pen(Gdiplus::Color(255, 0, 0, 0), 3);
+		graphics.DrawRectangle(&pen,rect);
+		EndPaint(hWnd, &ps);
+		return 0;
+	}
+
 	case WM_CLOSE:
 		DestroyWindow(hWnd);
 		return TRUE;
 
 	case WM_LBUTTONDOWN:
-		 xPos = GET_X_LPARAM(lParam);
-		 yPos = GET_Y_LPARAM(lParam);
-		 if (xPos >= picRect.left && xPos <= picRect.right && yPos <= picRect.bottom && yPos >= picRect.top) {
-			 graphics->DrawRectangle(&pen, rect);
-		 }
-	case WM_LBUTTONUP:
-		xPos = GET_X_LPARAM(lParam);
-		yPos = GET_Y_LPARAM(lParam);
-		if (xPos >= picRect.left && xPos <= picRect.right && yPos <= picRect.bottom && yPos >= picRect.top) {
-			graphics->DrawImage(&image1, rect);
+		xPos = LOWORD(lParam);
+		yPos = HIWORD(lParam);
+		if (xPos >= picRect.X && xPos <= (picRect.X + picRect.Width) && yPos >= picRect.Y && yPos <= (picRect.Y + picRect.Height)) {
+			show = false;
+			InvalidateRect(hWnd, NULL, TRUE);
 		}
+		return TRUE;
+	case WM_LBUTTONUP:
+		show = true;
+		InvalidateRect(hWnd, NULL, TRUE);
+		return TRUE;
 	case WM_COMMAND:
 		switch (LOWORD(wParam))
 		{
-			case ID_RUN:
-			{
-				switch (filter) {
-				case 0:
-					{
-						graphics->DrawImage(&image, rect);
-						return TRUE;
-					}
-				case 2:
-					{
-					Gdiplus::Color temp;
-					
-					int r = 0, g = 0, b = 0,grey = 0;
-						for (int i = 0; i < image1.GetWidth(); ++i) {
-							for (int j = 0; j < image1.GetHeight(); ++j) {
-								image1.GetPixel(i, j, &temp);
-								r = temp.GetRed();
-								g = temp.GetGreen();
-								b = temp.GetBlue();
-								grey = (r + g + b) / 3;
-								Gdiplus::Color newColor(grey,grey,grey);
-								image1.SetPixel(i, j, newColor);
-							}
-						}
-						graphics->DrawImage(&image1, rect);
-						return TRUE;
-					}
-				}
+		case ID_RUN:
+		{
+			filtered = original->Clone(0,0,original->GetWidth(),original->GetHeight(),original->GetPixelFormat());
+			filteredGeneric = new GenericImage(filtered);
 
-				return TRUE;
+			if (filter == 1) {
+				BoxBlur BB(filteredGeneric, radius);
+				BB.filter();
 			}
-			case IDC_BW:
-			{
-				filter = 2;
-				return TRUE;
+			else if (filter == 2) {
+				BWConverter BW(filteredGeneric);
+				BW.filter();
 			}
-			case IDC_BOXBLUR:
-			{
-				filter = 1;
-				return TRUE;
-			}
+			
+			InvalidateRect(hWnd, NULL, TRUE);
+			return TRUE;
+		}
+		case IDC_BW:
+		{
+			filter = 2;
+			return TRUE;
+		}
+		case IDC_BOXBLUR:
+		{
+			filter = 1;
+			return TRUE;
+		}
+		case IDC_OPEN:
+		{
+			OPENFILENAME ofn;
+			char file_name[MAX_PATH];
+
+			ZeroMemory(&file_name, sizeof(file_name));
+			ZeroMemory(&ofn, sizeof(ofn));
+
+			ofn.lStructSize = sizeof(ofn);
+			ofn.hwndOwner = hWnd;
+			ofn.lpstrFilter = "All Files\0*.*\0jpeg\0*.jpeg\0jpg\0*.jpg\0png\0*.png\0bmp\0*.bmp\0";
+			ofn.lpstrFile = file_name;
+			ofn.nMaxFile = MAX_PATH;
+			ofn.lpstrTitle = "Select Image";
+			ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST;
+
+			GetOpenFileName(&ofn);
+			
+			std::string s(file_name);
+			std::wstring wide_string = std::wstring(s.begin(), s.end());
+			const wchar_t* result = wide_string.c_str();
+			original = new Bitmap(result);
+			filtered = original->Clone(0, 0, original->GetWidth(), original->GetHeight(), original->GetPixelFormat());
+
+			picRect = fit(rect, original->GetWidth(), original->GetHeight());
+			InvalidateRect(hWnd, NULL, TRUE);
+			return TRUE;
+
+		}
+		}
+
+		return FALSE;
+	case WM_HSCROLL:
+		switch (LOWORD(wParam)) {
+		case SB_THUMBPOSITION:
+			int pos = HIWORD(wParam);
+			radius = (pos / 10);
+			return TRUE;
 		}
 		return FALSE;
 	case WM_DESTROY:
-			PostQuitMessage(0);
-			return TRUE;
+		PostQuitMessage(0);
+		return TRUE;
 	}
 
 
 
-		return FALSE;
+	return FALSE;
+}
+
+Rect fit(Rect region, int width, int height) {
+	Rect ret(0, 0, 0, 0);
+	int rWidth = region.Width;
+	int rHeight = region.Height;
+
+	double ratio = (double)width / height;
+	double rRatio = (double)rWidth / rHeight;
+
+	if (ratio <= rRatio) {
+		ret.Y = region.Y;
+		ret.Height = region.Height;
+		ret.Width = ratio * region.Height;
+		ret.X = region.X + (region.Width - ret.Width) / 2;
+	}
+	else {
+		ret.X = region.X;
+		ret.Width = region.Width;
+		ret.Height = region.Width / ratio;
+		ret.Y = region.Y + (region.Height - ret.Height) / 2;
+	}
+
+	return ret;
 }
