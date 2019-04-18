@@ -19,7 +19,7 @@ Bitmap* original;
 Bitmap* filtered;
 GenericImage* filteredGeneric;
 Rect picRect;
-int radius = 1;
+int radius = 0;
 int filter = 0;
 bool show = true;
 
@@ -172,7 +172,7 @@ BOOL CALLBACK DialogProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
 		switch (LOWORD(wParam)) {
 		case SB_THUMBPOSITION:
 			int pos = HIWORD(wParam);
-			radius = (pos / 10);
+			radius = (pos / 5);
 			return TRUE;
 		}
 		return FALSE;

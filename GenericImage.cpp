@@ -25,39 +25,25 @@ GenericImage::GenericImage()
 
 
 
-u_int GenericImage::GetPixel(int xPos, int yPos) {
+pixel GenericImage::GetPixel(int xPos, int yPos) {
 	PixelFormat format;
 	format = bmp->GetPixelFormat();
 	int bpp = Gdiplus::GetPixelFormatSize(format);
-	u_int ret = 0;
+	pixel ret;
 
 
 	char* charTmp = (char*)data.Scan0;
 	charTmp += yPos * stride + (xPos * bpp / 8);
-	unsigned char a = 0, b = 0, c = 0,d = 0;
 	if(bpp == 24){
-		a = charTmp[0];
-		b = charTmp[1];
-		c = charTmp[2];
-		ret += a;
-		ret = ret << 8;
-		ret += b;
-		ret = ret << 8;
-		ret += c;
-		ret = ret << 8;
+		ret.a = charTmp[0];
+		ret.b = charTmp[1];
+		ret.c = charTmp[2];
 	}
 	else if(bpp == 32) {
-		a = charTmp[0];
-		b = charTmp[1];
-		c = charTmp[2];
-		d = charTmp[3];
-		ret += a;
-		ret = ret << 8;
-		ret += b;
-		ret = ret << 8;
-		ret += c;
-		ret << 8;
-		ret += d;
+		ret.a = charTmp[0];
+		ret.b = charTmp[1];
+		ret.c = charTmp[2];
+		ret.d = charTmp[3];
 	}
 	
 	return ret;
@@ -65,29 +51,24 @@ u_int GenericImage::GetPixel(int xPos, int yPos) {
 
 
 
-void GenericImage::SetPixel(int xPos, int yPos, u_int value) {
+void GenericImage::SetPixel(int xPos, int yPos, pixel value) {
 	PixelFormat format;
 	format = bmp->GetPixelFormat();
 	int bpp = Gdiplus::GetPixelFormatSize(format);
-	unsigned char a = 0, b = 0, c = 0, d = 0;
-	a = value >> 24;
-	b = value >> 16;
-	c = value >> 8;
-	d = value;
 
 	char* charTmp = (char*)data.Scan0;
 	charTmp += yPos * stride + (xPos * bpp / 8);
 
 	if (bpp == 24) {
-		charTmp[0] = a;
-		charTmp[1] = b;
-		charTmp[2] = c;
+		charTmp[0] = value.a;
+		charTmp[1] = value.b;
+		charTmp[2] = value.c;
 	}
 	else if (bpp == 32) {
-		charTmp[0] = a;
-		charTmp[1] = b;
-		charTmp[2] = c;
-		charTmp[3] = d;
+		charTmp[0] = value.a;
+		charTmp[1] = value.b;
+		charTmp[2] = value.c;
+		charTmp[3] = value.d;
 	}
 }
 

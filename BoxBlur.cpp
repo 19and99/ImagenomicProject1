@@ -19,72 +19,89 @@ void BoxBlur::filter() {
 }
 
 void BoxBlur::horizontalBlur() {
-	unsigned int a = 0, b = 0, c = 0, d = 0, pixel = 0, sumA = 0, sumB = 0, sumC = 0,area = 0;
-	for (int i = 0; i < image->GetWidth(); ++i) {
-		for (int j = 0; j < image->GetHeight(); ++j) {
-			for (int k = i - radius; k <= i + radius; ++k) {
-				if (k >= 0 && k < image->GetWidth()) {
-					pixel = image->GetPixel(k, j);
-					a = pixel >> 24;
-					b = pixel << 8;
-					b = b >> 24;
-					c = pixel << 16;
-					c = c >> 24;
-					d = pixel << 24;
-					d = d >> 24;
-					sumA += a;
-					sumB += b;
-					sumC += c;
-					area++;
-				}
+	pixel pixel;
+	unsigned int sumA = 0, sumB = 0, sumC = 0;
+	unsigned int length = 2 * radius + 1;
+	int height = image->GetHeight();
+	int width = image->GetWidth();
+
+	for (int j = 0; j < height; ++j) {
+		for (int i = 0; i < length; ++i) {
+			pixel = image->GetPixel(i, j);
+			sumA += pixel.a;
+			sumB += pixel.b;
+			sumC += pixel.c;
+			if (i >= radius) {
+				pixel.a = sumA / (i + 1);
+				pixel.b = sumB / (i + 1);
+				pixel.c = sumC / (i + 1);
+				image->SetPixel(i - radius, j, pixel);
 			}
-			pixel = d;
-
-			u_int aset = sumA / area;
-			u_int bset = sumB / area;
-			u_int cset = sumC / area;
-
-			pixel += 16777216 * aset + 65536 * bset + 256*cset;
-			image->SetPixel(i,j,pixel);
-			sumA = sumB = sumC = area = 0;
 		}
+		for (int i = 2 * radius + 1; i < width; ++i) {
+			sumA += (image->GetPixel(i, j).a - image->GetPixel(i - length, j).a);
+			sumB += (image->GetPixel(i, j).b - image->GetPixel(i - length, j).b);
+			sumC += (image->GetPixel(i, j).c - image->GetPixel(i - length, j).c);
+			pixel.a = sumA / length;
+			pixel.b = sumB / length;
+			pixel.c = sumC / length;
+			image->SetPixel(i - radius, j, pixel);
+			}
+		for (int i = width - radius; i < width; ++i) {
+			int temp = i - width + radius + 1;
+			sumA -= image->GetPixel(i - radius - 1, j).a;
+			sumB -= image->GetPixel(i - radius - 1, j).b;
+			sumC -= image->GetPixel(i - radius - 1, j).c;
+			pixel.a = sumA / (length - temp);
+			pixel.b = sumB / (length - temp);
+			pixel.c = sumC / (length - temp);
+			image->SetPixel(i, j, pixel);
+		}
+			sumA = sumB = sumC = 0;
 	}
 }
 
 void BoxBlur::verticalBlur() {
-	unsigned int a = 0, b = 0, c = 0, d = 0, pixel = 0, sumB = 0, sumC = 0, sumA = 0, area = 0;
+	pixel pixel;
+	unsigned int sumA = 0, sumB = 0, sumC = 0;
+	unsigned int length = 2 * radius + 1;
+	int height = image->GetHeight();
+	int width = image->GetWidth();
 
-	for (int i = 0; i < image->GetWidth(); ++i) {
-		for (int j = 0; j < image->GetHeight(); ++j) {
-			for (int k = j - radius; k <= j + radius; ++k) {
-				if (k >= 0 && k < image->GetHeight()) {
-					pixel = image->GetPixel(i, k);
-					a = pixel >> 24;
-					b = pixel << 8;
-					b = b >> 24;
-					c = pixel << 16;
-					c = c >> 24;
-					d = pixel << 24;
-					d = d >> 24;
-					sumA += a;
-					sumB += b;
-					sumC += c;
-					area++;
-				}
+	for (int i = 0; i < width; ++i) {
+		for (int j = 0; j < length; ++j) {
+			pixel = image->GetPixel(i, j);
+			sumA += pixel.a;
+			sumB += pixel.b;
+			sumC += pixel.c;
+			if (j >= radius) {
+				pixel.a = sumA / (j + 1);
+				pixel.b = sumB / (j + 1);
+				pixel.c = sumC / (j + 1);
+				image->SetPixel(i, j - radius, pixel);
 			}
-			pixel = d;
-
-			u_int aset = sumA / area;
-			u_int bset = sumB / area;
-			u_int cset = sumC / area;
-
-			pixel += 16777216 * aset + 65536 * bset + 256 * cset;
-			image->SetPixel(i, j, pixel);
-			sumA = sumB = sumC = area = 0;
-
 		}
+		for (int j = 2 * radius + 1; j < height; ++j) {
+			sumA += (image->GetPixel(i, j).a - image->GetPixel(i, j - length).a);
+			sumB += (image->GetPixel(i, j).b - image->GetPixel(i, j - length).b);
+			sumC += (image->GetPixel(i, j).c - image->GetPixel(i, j - length).c);
+			pixel.a = sumA / length;
+			pixel.b = sumB / length;
+			pixel.c = sumC / length;
+			image->SetPixel(i, j - radius, pixel);
+		}
+		for (int j = height - radius; j < height; ++j) {
+			int temp = j - height + radius + 1;
+			sumA -= image->GetPixel(i, j - radius - 1).a;
+			sumB -= image->GetPixel(i, j - radius - 1).b;
+			sumC -= image->GetPixel(i, j - radius - 1).c;
+			pixel.a = sumA / (length - temp);
+			pixel.b = sumB / (length - temp);
+			pixel.c = sumC / (length - temp);
+			image->SetPixel(i, j, pixel);
+		}
+		sumA = sumB = sumC = 0;
 	}
-	
 }
 
 BoxBlur::~BoxBlur()

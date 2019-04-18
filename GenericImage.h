@@ -4,6 +4,16 @@
 #pragma comment (lib,"Gdiplus.lib")
 
 using namespace Gdiplus;
+class pixel {
+public:
+	unsigned char a;
+	unsigned char b;
+	unsigned char c;
+	unsigned char d;
+	pixel() {
+		a = b = c = d = 0;
+	}
+};
 class GenericImage
 {
 protected:
@@ -18,8 +28,8 @@ public:
 
 	int GetHeight() { return height; }
 	int GetWidth() { return width; }
-	unsigned int GetPixel(int xPos, int yPos);
-	void SetPixel(int xPos, int yPos, u_int value);
+	pixel GetPixel(int xPos, int yPos);
+	void SetPixel(int xPos, int yPos, pixel value);
 
 
 	void* GetData() { return data.Scan0; }
